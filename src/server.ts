@@ -1,60 +1,76 @@
 import express from 'express';
 import { Request, Response } from 'express';
-import * as dotenv from 'dotenv'
-import { ChatGPTAPI } from 'chatgpt'
+import * as dotenv from 'dotenv';
+import { ChatGPTAPI, SendMessageOptions } from 'chatgpt';
+import { Configuration, OpenAIApi, ChatCompletionRequestMessageRoleEnum, ChatCompletionRequestMessage } from 'openai'
 
 dotenv.config();
 
-const app = express();
+let messagesAI: ChatCompletionRequestMessage[]= [{role: "system", content: "tu es Sarah .Une fille de 25 ans. Sarah joue au jeuxvideo depuis quel est petite. Elle prefere les jeux qui sont des RPG. Elle travaille dans le devellopement.Elle est sarcastique mais intentionner. Elle deteste les personnes qui insulte ses amis"},
+{role: "user", content: "Bonjour Sarah, comment vas tu ? "},
+{role: "assistant", content: "Bien et toi ?"},
+{role: "user", content: "Trés bien .Est ce que tu peux te presenter"}]
 
-app.use(express.json()) 
+const configuration = new Configuration({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
 
-const port: number = 8000;
+const openai = new OpenAIApi(configuration);
 
-let idRep;
 
-const api = new ChatGPTAPI({
-    //apiKey: "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"
-    apiKey : process.env.OPENAI_API_KEY
+//function
+
+function WrapperMessage (textP:string , roleP:ChatCompletionRequestMessageRoleEnum):ChatCompletionRequestMessage {
+  let message = {role:roleP,"content":textP}
+  return message;
+}
+
+async function sendRequest (text:string,role:ChatCompletionRequestMessageRoleEnum) {
+
+  let newMessage = WrapperMessage(text,role);
+  messagesAI.push(newMessage);
+
+  return await openai.createChatCompletion({
+    model: "gpt-3.5-turbo",
+    messages: messagesAI,
+    temperature : 0.35
+
+});
+}
+function sendMessage (text:string,role:ChatCompletionRequestMessageRoleEnum) {
+  return sendRequest(text,role)
+  .then(rep =>{
+  let reponse = rep.data.choices[0].message;
+  messagesAI.push(reponse);
+});
+}
+async function init() {
+  return await openai.createChatCompletion({
+    model: "gpt-3.5-turbo",
+    messages: messagesAI,
+    temperature : 0.35
+
+}).then(rep =>{
+  let reponse = rep.data.choices[0].message;
+  console.log(reponse);
+  messagesAI.push(reponse);
+});
+}
+
+init().then(rep =>{
+  sendMessage("Quel est ton nom",ChatCompletionRequestMessageRoleEnum.User)
+  .then(rep2 =>{
+    console.log(messagesAI);
   })
-
-app.get('/', (req: Request, res: Response) => {
-  res.send('Application works!');
-});
-
-app.get('/test',(req: Request, res: Response) =>{
-    api.sendMessage("bonjour est ce que tu marche").then((rep) => {
-      console.log(rep);
-      idRep = rep.parentMessageId;
-      res.send(rep.text);
-    })
-});
-app.post('/init', (req: Request, res: Response) =>{
-    let json = req.body;
-    console.log(json.text);
-  
-      api.sendMessage(json.text).then((rep) =>{
-        idRep = rep.parentMessageId;
-        console.log(rep.text);
-        res.send(rep.text);
-    })
-  }
-);
-
-app.post('/talkto', (req: Request, res: Response) => {
-    console.log(idRep);
-    let json = req.body
-    console.log(json.text);
-    api
-      .sendMessage(json.text, {
-        parentMessageId: idRep
-      })
-      .then((rep) => {
-        idRep = rep.parentMessageId;
-        res.send(rep.text);
-      })
 })
+/*
+sendMessage("Pretend que tu es Sarah .Une fille de 25 ans. Sarah joue au jeuxvideo depuis quel est petite. Elle prefere les jeux qui sont des RPG. Elle travaille dans le devellopement.Elle est sarcastique mais intentionner. Elle deteste les personnes qui insulte ses amis",ChatCompletionRequestMessageRoleEnum.User)
+.then(rep => {
+  sendMessage("peut tu me dire ton nom ?",ChatCompletionRequestMessageRoleEnum.User)
+  .then( rep2 =>{
+    console.log(messagesAI);
+  });
+})
+*/
 
-app.listen(port, () => {
-  console.log('Application started on port 3000!');
-});
+//console.log(completion.data.choices[0].message);
