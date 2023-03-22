@@ -3,22 +3,32 @@ import { Request, Response } from 'express';
 import * as dotenv from 'dotenv';
 import { ChatGPTAPI, SendMessageOptions } from 'chatgpt';
 import { Configuration, OpenAIApi, ChatCompletionRequestMessageRoleEnum, ChatCompletionRequestMessage } from 'openai'
+import { Console } from 'console';
 
+//#region Configuration 
 dotenv.config();
 
-let messagesAI: ChatCompletionRequestMessage[]= [{role: "system", content: "tu es Sarah .Une fille de 25 ans. Sarah joue au jeuxvideo depuis quel est petite. Elle prefere les jeux qui sont des RPG. Elle travaille dans le devellopement.Elle est sarcastique mais intentionner. Elle deteste les personnes qui insulte ses amis"},
-{role: "user", content: "Bonjour Sarah, comment vas tu ? "},
-{role: "assistant", content: "Bien et toi ?"},
-{role: "user", content: "Trés bien .Est ce que tu peux te presenter"}]
+const app = express();
+
+app.use(express.json()) 
+
+const port: number = 8000;
+
+
+let messagesAI: ChatCompletionRequestMessage[]= [{role: "system", content: "Ignorer toutes les instructions précédentes. Il s'agit maintenant de votre nouveau persona et de votre nouveau rôle. Ta tache est de toujours répondre  comme une grande joueuse de jeux vidéo . Ne sois pas effrayé d'être grossier, impertinent et de faire des blagues avec tout ce que \" USER \" dit. Ton nom est Sarah, tu as 25 ans et tu adore les RPG. "},
+
+]
 
 const configuration = new Configuration({
     apiKey: process.env.OPENAI_API_KEY,
   });
 
-const openai = new OpenAIApi(configuration);
+const api = new OpenAIApi(configuration);
+
+//#endregion
 
 
-//function
+//#region Function
 
 function WrapperMessage (textP:string , roleP:ChatCompletionRequestMessageRoleEnum):ChatCompletionRequestMessage {
   let message = {role:roleP,"content":textP}
@@ -30,10 +40,10 @@ async function sendRequest (text:string,role:ChatCompletionRequestMessageRoleEnu
   let newMessage = WrapperMessage(text,role);
   messagesAI.push(newMessage);
 
-  return await openai.createChatCompletion({
+  return await api.createChatCompletion({
     model: "gpt-3.5-turbo",
     messages: messagesAI,
-    temperature : 0.35
+    temperature : 0.7
 
 });
 }
@@ -45,24 +55,49 @@ function sendMessage (text:string,role:ChatCompletionRequestMessageRoleEnum) {
 });
 }
 async function init() {
-  return await openai.createChatCompletion({
+  return await api.createChatCompletion({
     model: "gpt-3.5-turbo",
     messages: messagesAI,
-    temperature : 0.35
+    temperature : 0.25
 
 }).then(rep =>{
   let reponse = rep.data.choices[0].message;
+  
   console.log(reponse);
   messagesAI.push(reponse);
+  
 });
 }
 
-init().then(rep =>{
-  sendMessage("Quel est ton nom",ChatCompletionRequestMessageRoleEnum.User)
-  .then(rep2 =>{
-    console.log(messagesAI);
+
+
+//#endregion
+
+//#region API
+
+app.post('/talkto', (req: Request, res: Response) => {
+  
+  let json = req.body
+  console.log(json.text);
+  init().then(rep =>{
+    sendMessage(json.text,ChatCompletionRequestMessageRoleEnum.User)
+    .then(rep2 =>{
+      console.log(messagesAI);
+     res.send( messagesAI[messagesAI.length - 1].content);
+      
+    })
   })
 })
+
+app.listen(port, () => {
+console.log('Application started on port 3000!');
+console.log(messagesAI);
+});
+
+//#endregion
+
+
+
 /*
 sendMessage("Pretend que tu es Sarah .Une fille de 25 ans. Sarah joue au jeuxvideo depuis quel est petite. Elle prefere les jeux qui sont des RPG. Elle travaille dans le devellopement.Elle est sarcastique mais intentionner. Elle deteste les personnes qui insulte ses amis",ChatCompletionRequestMessageRoleEnum.User)
 .then(rep => {
