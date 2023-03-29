@@ -19,7 +19,7 @@ app.post("/talkto", (req, res) => {
     chain.call({ input: json.text }).then(repAi => {
         //console.log(repAi);
         console.log("\n");
-        console.log(memory.chatHistory);
+        console.log(repAi);
         res.send(repAi);
     });
 });
